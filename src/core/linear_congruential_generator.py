@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from util import Util
 from random import getrandbits
 
