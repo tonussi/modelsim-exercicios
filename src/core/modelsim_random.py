@@ -1,8 +1,7 @@
-import re
+from Util import Util
 from random import getrandbits
 
-
-class Random(object):
+class LinearCongruentialGenerator(object):
     def __init__(self):
         self.constant_a = 7 ** 5
         self.constant_m = (2 ** 31) - 1
@@ -33,16 +32,15 @@ class Random(object):
 
         return self.old_state
 
-    def convert_to_brazilian_fraction_style(self, val):
-        return re.sub("(\d).(?=(\d{3})+(?!\d))", r"\1,", "%.4f" % val)
-
-    def generate_random_numbers(self, quantity):
-        for i in range(quantity):
-            rnd_number = r.linear_congruential_generator(initial_seed=31, fraction=True)
-            fmt_rnd_number = r.convert_to_brazilian_fraction_style(rnd_number)
-            print(fmt_rnd_number)
-
+    def generate_random_numbers(self, quantity, range=0, initial_seed=31, fraction=True):
+        for i in xrange(quantity):
+            rnd_number = self.linear_congruential_generator(initial_seed=initial_seed, fraction=fraction)
+            if range != 0:
+                print(rnd_number // range)
+            else:
+                fmt_rnd_number = Util.convert_to_brazilian_fraction_style(rnd_number)
+                print(fmt_rnd_number)
 
 if __name__ == '__main__':
-    r = Random()
-    r.generate_random_numbers(500)
+    lcg = LinearCongruentialGenerator()
+    lcg.generate_random_numbers(10, 15, 31, False)
