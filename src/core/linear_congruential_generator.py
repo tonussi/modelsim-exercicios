@@ -36,6 +36,9 @@ class LinearCongruentialGenerator(object):
         random_numbers = []
         for i in xrange(quantity):
             rnd_number = self.linear_congruential_generator(initial_seed=initial_seed, fraction=fraction)
-            fmt_rnd_number = Util.convert_to_brazilian_fraction_style(rnd_number)
-            random_numbers.append(fmt_rnd_number)
+            if fraction == True:
+                fmt_rnd_number = Util.convert_to_brazilian_fraction_style(rnd_number)
+                random_numbers.append(fmt_rnd_number)
+            else:
+                random_numbers.append(rnd_number)
         return random_numbers
