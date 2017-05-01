@@ -1,4 +1,4 @@
-from Util import Util
+from util import Util
 from random import getrandbits
 
 class LinearCongruentialGenerator(object):
