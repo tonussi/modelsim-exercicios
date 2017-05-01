@@ -28,15 +28,15 @@ class LinearCongruentialGenerator(object):
             self.old_state = (a * self.old_state) % m
 
         if fraction == True:
-            return (self.old_state / 999999999.0) * 2
+            return (self.old_state / 9999999999.0) * 2
 
         return self.old_state
 
-    def generate_random_numbers(self, quantity, initial_seed=31, fraction=True):
+    def generate_random_numbers(self, quantity, initial_seed=31, fraction=True, format='en'):
         random_numbers = []
         for i in xrange(quantity):
             rnd_number = self.linear_congruential_generator(initial_seed=initial_seed, fraction=fraction)
-            if fraction == True:
+            if format == 'pt':
                 fmt_rnd_number = Util.convert_to_brazilian_fraction_style(rnd_number)
                 random_numbers.append(fmt_rnd_number)
             else:
