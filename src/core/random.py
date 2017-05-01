@@ -32,15 +32,10 @@ class LinearCongruentialGenerator(object):
 
         return self.old_state
 
-    def generate_random_numbers(self, quantity, range=0, initial_seed=31, fraction=True):
+    def generate_random_numbers(self, quantity, initial_seed=31, fraction=True):
+        random_numbers = []
         for i in xrange(quantity):
             rnd_number = self.linear_congruential_generator(initial_seed=initial_seed, fraction=fraction)
-            if range != 0:
-                print(rnd_number // range)
-            else:
-                fmt_rnd_number = Util.convert_to_brazilian_fraction_style(rnd_number)
-                print(fmt_rnd_number)
-
-if __name__ == '__main__':
-    lcg = LinearCongruentialGenerator()
-    lcg.generate_random_numbers(10, 15, 31, False)
+            fmt_rnd_number = Util.convert_to_brazilian_fraction_style(rnd_number)
+            random_numbers.append(fmt_rnd_number)
+        return random_numbers
