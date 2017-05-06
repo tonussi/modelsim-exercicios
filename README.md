@@ -44,3 +44,10 @@ Para executar você precisa ter Python 2.7+ na sua máquina.
 + sudo pip install simpy
 + sudo pip install matplotlib
 + Pronto tudo já configurado.
+
+# Libs Pages
+
+1. Simpy https://simpy.readthedocs.org/en/latest/index.html
++ Scipy http://www.scipy.org
++ Numpy http://www.numpy.org
++ Matplotlib http://matplotlib.org/
