@@ -1,95 +1,132 @@
 # -*- coding: utf-8 -*-
 
-import random, math
-import numpy as np
-import scipy as sp
-import scipy.stats as stats
-import matplotlib.pyplot as plt
-import simpy
-from math import factorial, exp
-from linear_congruential_generator import LinearCongruentialGenerator
+import simpy, scipy, numpy, random
 
-lcg = LinearCongruentialGenerator()
-
-def poisson(lambda_value, random_number):
-    return ((lambda_value ** random_number) * (np.e ** (-lambda_value))) / factorial(random_number)
-
-def poisson_random_value(lambda_value):
-    L = exp(-lambda_value)
-    p = 1.0
-    k = 0
-    r1 = lcg.generate_random_numbers(1).pop()
-    while (p>L):
-        r2 = lcg.generate_random_numbers(1, initial_seed=r1).pop()
-        r1 = r2
-        k+=1
-        p *= r2
-    return k - 1
-
+from src.core.linear_congruential_generator import LinearCongruentialGenerator
 
 RANDOM_SEED = 42
-QNT_COMPONENTES_INDEPENDENTES = 2 # Total number of components of the equipament
+PT_MEAN = 10.0
+PT_SIGMA = 2.0
+MTTF_UNIFORM = 10
+MTTF_EXPONENTIAL = 20
+BREAK_MEAN = 1 / (MTTF_UNIFORM + MTTF_EXPONENTIAL)
+NUM_COMPONENTES_INDEPENDENTES = 2
+QUANTIDADE_TESTES = 5
+SIM_TIME = 7 * 24
+UMA_SEMANA = 7 * 24
 
 def tef_uniform():
     """return a random value from uniform distribuition"""
-    return sp.random.uniform(0.0, 8.0) # hours
+    return scipy.random.uniform(0.0, 8.0)  # hours
 
-print(tef_uniform())
 
 def tef_expo():
     """return a random value from exponential distribuition"""
-    return sp.random.exponential(10) # hours
+    return scipy.random.standard_exponential(10)  # hours
 
-print(tef_expo())
 
-def equipament(env, qnt_componentes_independentes, counter):
+def time_per_working_part():
+    """Return actual processing time for a concrete part."""
+    return random.normalvariate(PT_MEAN, PT_SIGMA)
 
-    for i in range(qnt_componentes_independentes):
 
-        if i == 0: # componente independente A
-            t = tef_expo()
-            c = component(env, 'ComponenteIndependente %02d' % (i+1), counter, tef=t)
-            env.process(c)
-            yield env.timeout(t)
+def time_to_failure(componente_id):
+    """Return time until next failure for a machine."""
+    if componente_id == 1:
+        return tef_uniform()  # TEF COMPONENTE A
+    elif componente_id == 2:
+        return random.expovariate(10)  # TEF COMPONENTE B
 
-        if i == 1: # componente independente B
-            t = tef_uniform()
-            c = component(env, 'ComponenteIndependente %02d' % (i+1), counter, tef=t)
-            env.process(c)
-            yield env.timeout(t)
 
-def component(env, name, counter, tef):
-    """Customer arrives, is served and leaves."""
-    arrive = env.now
-    print('%7.4f %s: Componente Sinalizando' % (arrive, name))
+def calcular_z(r1, r2):
+    return numpy.sqrt(-2 * numpy.log(r1)) * numpy.sin(2 * 180 * r2) + numpy.random.randint(8, 10)
 
-    with counter.request() as req:
 
-        # Wait for the counter or abort at the end of our tether
-        results = yield req | env.timeout(0)
+class EquipamentoDoisComponentesIndependentes(object):
+    def __init__(self, env, name, repairman):
+        self.env = env
+        self.name = name
+        self.quantidade_de_falhas = 0
+        self.broken = False
+        self.componente_A = 1
+        self.componente_B = 2
 
-        wait = env.now - arrive
+        # Start "working" and "break_machine" processes for this machine.
+        self.process = env.process(self.working(repairman))
 
-        if req in results:
-            # We got to the counter
-            print('%7.4f %s: Waited %6.3f' % (env.now, name, wait))
+        env.process(self.break_machine(self.componente_A))
+        env.process(self.break_machine(self.componente_B))
 
-            yield env.timeout(tef)
+    def working(self, repairman):
+        lcg = LinearCongruentialGenerator()
 
-            print('%7.4f %s: Finished' % (env.now, name))
+        while True:
+            r1 = lcg.generate_random_numbers(1).pop()
+            r2 = lcg.generate_random_numbers(1, initial_seed=r1).pop() + 10
+            done_in = abs(calcular_z(r1, r2))
 
-        else:
-            # We reneged
-            print('%7.4f %s: RENEGED after %6.3f' % (env.now, name, wait))
+            while done_in:
+                try:
+                    start = self.env.now
+                    yield self.env.timeout(done_in)
+                    done_in = 0
 
-# Setup and start the simulation
-print('Equipamento - Dois Componentes Independentes')
-random.seed(RANDOM_SEED)
+                except simpy.Interrupt:
+                    self.broken = True
+                    done_in -= self.env.now - start  # How much time left?
 
-# Start simulation Environment
-env = simpy.Environment()
+                    # Request a repairman. This will preempt its "other_job".
+                    with repairman.request(priority=10) as req:
+                        yield req
+                        yield self.env.timeout(time_per_working_part())
 
-# Start processes and run
-counter = simpy.Resource(env, capacity=1)
-env.process(equipament(env, QNT_COMPONENTES_INDEPENDENTES, counter))
-env.run()
+                    self.broken = False
+
+            self.quantidade_de_falhas += 1
+
+    def break_machine(self, componente_id):
+        """Break the machine every now and then."""
+        while True:
+            yield self.env.timeout(time_to_failure(componente_id))
+            if not self.broken:
+                # Only break the machine if it is currently working.
+                self.process.interrupt()
+
+
+def job_equipamento_funcional(env, equipamento_funcionando):
+    """The repairman's other (unimportant) job."""
+    while True:
+        # Start a new job
+        done_in = time_per_working_part()
+        while done_in:
+            with equipamento_funcionando.request(priority=1) as req:
+                yield req
+                try:
+                    start = env.now
+                    yield env.timeout(done_in)
+                    done_in = 0
+                except simpy.Interrupt:
+                    done_in -= env.now - start
+
+# Analyis/results
+print('Equipamento - 2 Componentes Independentes\n')
+
+print('Resultados depois de %s testes, cada teste de 1 semana (em horas).\n' % QUANTIDADE_TESTES)
+
+for teste_semanal in range(QUANTIDADE_TESTES):
+    # Setup and start the simulation
+    random.seed(RANDOM_SEED)  # This helps reproducing the results
+
+    # Create an environment and start the setup process
+    env = simpy.Environment()
+    equipamento_funcionando = simpy.PreemptiveResource(env, capacity=1)
+
+    equipamento = EquipamentoDoisComponentesIndependentes(env, 'Equipamento %d', equipamento_funcionando)
+
+    env.process(job_equipamento_funcional(env, equipamento_funcionando))
+
+    # Execute!
+    env.run(until=SIM_TIME)
+
+    print('%s no teste nro %d executou 7 [dias] * 24 [horas] {= %d horas}, falhou %d [vezes].\n' %
+          (equipamento.name, teste_semanal, UMA_SEMANA, equipamento.quantidade_de_falhas))
