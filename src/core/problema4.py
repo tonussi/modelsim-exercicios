@@ -114,3 +114,13 @@ for teste_semanal in range(QUANTIDADE_TESTES):
     media_tempo_falhas += equipamento.tempo_entre_falhas_total
 
 print('Em media o equipamento falha por %d / semana' % (media_tempo_falhas / QUANTIDADE_TESTES))
+
+#Equipamento - 2 Componentes Independentes
+#Resultados depois de 5 testes, cada teste de 1 semana (em horas).
+#Equipamento %d no teste nro 0 executou 7 [dias] * 24 [horas] {= 168 horas}, falhou 68 [horas].
+#Equipamento %d no teste nro 1 executou 7 [dias] * 24 [horas] {= 168 horas}, falhou 85 [horas].
+#Equipamento %d no teste nro 2 executou 7 [dias] * 24 [horas] {= 168 horas}, falhou 64 [horas].
+#Equipamento %d no teste nro 3 executou 7 [dias] * 24 [horas] {= 168 horas}, falhou 84 [horas].
+#Equipamento %d no teste nro 4 executou 7 [dias] * 24 [horas] {= 168 horas}, falhou 84 [horas].
+#Em media o equipamento falha por 77 / semana
+#Process finished with exit code 0
