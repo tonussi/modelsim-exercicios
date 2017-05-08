@@ -24,7 +24,7 @@ def tempo_do_equipamento_funcionando():
     return random.normalvariate(10.0, 2.0)
 
 
-def time_to_failure(componente_id):
+def tef(componente_id):
     """Return time until next failure for a machine."""
     if componente_id == 1:
         return tef_uniform()  # TEF COMPONENTE A
@@ -51,33 +51,47 @@ class EquipamentoDoisComponentesIndependentes(object):
         env.process(self.break_machine(self.componente_A))
         env.process(self.break_machine(self.componente_B))
 
-    def working(self, repairman):
+    def working(self, reparador_de_componente):
         lcg = LinearCongruentialGenerator()
 
         while True:
+
             r1 = lcg.generate_random_numbers(1).pop()
             r2 = lcg.generate_random_numbers(1, initial_seed=r1).pop() + 10
+
+            # Gero um x aleatorio usando o Linear Congruential Generator
             done_in = abs(calcular_z(r1, r2))
 
+            # Espero um componente voltar do tempo falhando (simulacao desse evento, periodo falhando, evento)
             while done_in:
+
                 try:
                     start = self.env.now
                     yield self.env.timeout(done_in)
                     done_in = 0
+
                 except simpy.Interrupt:
                     self.broken = True
-                    done_in -= self.env.now - start  # How much time left?
+                    done_in -= self.env.now - start
+
+                    # Salva o tempo em que o componente esteve falhando
                     self.tempo_entre_falhas_total += done_in
-                    # Request a repairman. This will preempt its "other_job".
-                    with repairman.request(priority=1) as req:
+
+                    # Chama um reparador de componente para faze voltar a funcionar
+                    with reparador_de_componente.request(priority=1) as req:
                         yield req
                         yield self.env.timeout(tempo_do_equipamento_funcionando())
                     self.broken = False
 
     def break_machine(self, componente_id):
-        """Break the machine every now and then."""
+
+        # Funcao de quebra de componente
+        # a funcao tef sendo chamada abaixo leva em consideracao o tipo de componente
+        # se for o componente que segue uma distribuicao uniforme em horas vai ser usado tef_uniform para esse componente
+        # do contrario vai ser usado tef_expo para o outro componente do equipamento
+
         while True:
-            yield self.env.timeout(time_to_failure(componente_id))
+            yield self.env.timeout(tef(componente_id))
             if not self.broken:
                 # Only break the machine if it is currently working.
                 self.process.interrupt()
