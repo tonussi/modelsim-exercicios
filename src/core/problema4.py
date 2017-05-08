@@ -5,15 +5,9 @@ import simpy, scipy, numpy, random
 from src.core.linear_congruential_generator import LinearCongruentialGenerator
 
 RANDOM_SEED = 42
-PT_MEAN = 10.0
-PT_SIGMA = 2.0
-MTTF_UNIFORM = 10
-MTTF_EXPONENTIAL = 20
-BREAK_MEAN = 1 / (MTTF_UNIFORM + MTTF_EXPONENTIAL)
 NUM_COMPONENTES_INDEPENDENTES = 2
 QUANTIDADE_TESTES = 5
-SIM_TIME = 7 * 24
-UMA_SEMANA = 7 * 24
+TEMPO_SIMULACAO = 7 * 24
 
 def tef_uniform():
     """return a random value from uniform distribuition"""
@@ -25,9 +19,9 @@ def tef_expo():
     return scipy.random.standard_exponential(10)  # hours
 
 
-def time_per_working_part():
+def tempo_do_equipamento_funcionando():
     """Return actual processing time for a concrete part."""
-    return random.normalvariate(PT_MEAN, PT_SIGMA)
+    return random.normalvariate(10.0, 2.0)
 
 
 def time_to_failure(componente_id):
@@ -77,7 +71,7 @@ class EquipamentoDoisComponentesIndependentes(object):
                     # Request a repairman. This will preempt its "other_job".
                     with repairman.request(priority=1) as req:
                         yield req
-                        yield self.env.timeout(time_per_working_part())
+                        yield self.env.timeout(tempo_do_equipamento_funcionando())
                     self.broken = False
 
     def break_machine(self, componente_id):
@@ -106,10 +100,10 @@ for teste_semanal in range(QUANTIDADE_TESTES):
     equipamento = EquipamentoDoisComponentesIndependentes(env, 'Equipamento %d', equipamento_funcionando)
 
     # Execute!
-    env.run(until=SIM_TIME)
+    env.run(until=TEMPO_SIMULACAO)
 
     print('%s no teste nro %d executou 7 [dias] * 24 [horas] {= %d horas}, falhou %d [horas].\n' %
-          (equipamento.name, teste_semanal, UMA_SEMANA, equipamento.tempo_entre_falhas_total))
+          (equipamento.name, teste_semanal, TEMPO_SIMULACAO, equipamento.tempo_entre_falhas_total))
 
     media_tempo_falhas += equipamento.tempo_entre_falhas_total
 
