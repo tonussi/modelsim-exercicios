@@ -43,16 +43,16 @@ def calcular_z(r1, r2):
 
 
 class EquipamentoDoisComponentesIndependentes(object):
-    def __init__(self, env, name, repairman):
+    def __init__(self, env, name, equipamento_funcionando):
         self.env = env
         self.name = name
-        self.quantidade_de_falhas = 0
+        self.tempo_entre_falhas_total = 0
         self.broken = False
         self.componente_A = 1
         self.componente_B = 2
 
         # Start "working" and "break_machine" processes for this machine.
-        self.process = env.process(self.working(repairman))
+        self.process = env.process(self.working(equipamento_funcionando))
 
         env.process(self.break_machine(self.componente_A))
         env.process(self.break_machine(self.componente_B))
@@ -70,19 +70,15 @@ class EquipamentoDoisComponentesIndependentes(object):
                     start = self.env.now
                     yield self.env.timeout(done_in)
                     done_in = 0
-
                 except simpy.Interrupt:
                     self.broken = True
                     done_in -= self.env.now - start  # How much time left?
-
+                    self.tempo_entre_falhas_total += done_in
                     # Request a repairman. This will preempt its "other_job".
-                    with repairman.request(priority=10) as req:
+                    with repairman.request(priority=1) as req:
                         yield req
                         yield self.env.timeout(time_per_working_part())
-
                     self.broken = False
-
-            self.quantidade_de_falhas += 1
 
     def break_machine(self, componente_id):
         """Break the machine every now and then."""
@@ -92,26 +88,12 @@ class EquipamentoDoisComponentesIndependentes(object):
                 # Only break the machine if it is currently working.
                 self.process.interrupt()
 
-
-def job_equipamento_funcional(env, equipamento_funcionando):
-    """The repairman's other (unimportant) job."""
-    while True:
-        # Start a new job
-        done_in = time_per_working_part()
-        while done_in:
-            with equipamento_funcionando.request(priority=1) as req:
-                yield req
-                try:
-                    start = env.now
-                    yield env.timeout(done_in)
-                    done_in = 0
-                except simpy.Interrupt:
-                    done_in -= env.now - start
-
 # Analyis/results
 print('Equipamento - 2 Componentes Independentes\n')
 
 print('Resultados depois de %s testes, cada teste de 1 semana (em horas).\n' % QUANTIDADE_TESTES)
+
+media_tempo_falhas = 0
 
 for teste_semanal in range(QUANTIDADE_TESTES):
     # Setup and start the simulation
@@ -123,10 +105,12 @@ for teste_semanal in range(QUANTIDADE_TESTES):
 
     equipamento = EquipamentoDoisComponentesIndependentes(env, 'Equipamento %d', equipamento_funcionando)
 
-    env.process(job_equipamento_funcional(env, equipamento_funcionando))
-
     # Execute!
     env.run(until=SIM_TIME)
 
-    print('%s no teste nro %d executou 7 [dias] * 24 [horas] {= %d horas}, falhou %d [vezes].\n' %
-          (equipamento.name, teste_semanal, UMA_SEMANA, equipamento.quantidade_de_falhas))
+    print('%s no teste nro %d executou 7 [dias] * 24 [horas] {= %d horas}, falhou %d [horas].\n' %
+          (equipamento.name, teste_semanal, UMA_SEMANA, equipamento.tempo_entre_falhas_total))
+
+    media_tempo_falhas += equipamento.tempo_entre_falhas_total
+
+print('Em media o equipamento falha por %d / semana' % (media_tempo_falhas / QUANTIDADE_TESTES))
